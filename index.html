@@ -58,7 +58,7 @@ function compareSelected(){
  if(selected.size<2){alert('Hãy chọn ít nhất 2 nhân viên để so sánh.');return}
  let idx=(h)=>D.headers.indexOf(h);let fields=['LŨY KẾ','% HOÀN THÀNH','% HOÀN THÀNH DK','XẾP HẠNG\nDOANH THU','SỐ MÔN ĐẠT','XẾP HẠNG\nTHI ĐUA','TỈ TRỌNG TRẢ CHẬM'];
  cmpgrid.innerHTML=[...selected].map(i=>{let r=D.rows[i];return '<div class="person"><b>'+esc(r[2])+'</b>'+fields.map(f=>{let k=idx(f),v=r[k];let z=(String(f).includes('%')||f.includes('TỈ TRỌNG'))?pct(v):fmt(v);return '<div class="metric"><span>'+esc(f.replace(/\n/g,' '))+'</span><strong>'+z+'</strong></div>'}).join('')+'</div>'}).join('');
- compare.style.display='block';compare.scrollIntoView({behavior:'smooth',block:'start'})
+ compare.style.display='block';compare.scrollIntoView({{behavior:'smooth',block:'start'}})
 }
 q.oninput=render;sort.onchange=render;render();
 </script></body></html>
