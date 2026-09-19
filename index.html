@@ -118,7 +118,7 @@ async function handleExcelUpload(ev){
     if(typeof XLSX==='undefined')throw new Error('Thư viện đọc Excel chưa tải xong. Hãy thử lại.');
     const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array',cellDates:true});
     const next=parseExcelWorkbook(wb); DATA=next; selected=null; saveData();
-    mode='all';contestGroupIndex=0;document.querySelectorAll('.filters .btn').forEach(b=>b.classList.toggle('active',b.dataset.m==='all'));
+    mode='all';contestGroupIndex=0;interestGroupIndex=null;document.querySelectorAll('.filters .btn').forEach(b=>b.classList.toggle('active',b.dataset.m==='all'));
     render();
     alert('Đã cập nhật dữ liệu từ Excel. Từ giờ nhấn F5 vẫn giữ dữ liệu này.');
   }catch(err){console.error(err);alert('Không cập nhật được Excel: '+err.message)}
@@ -128,12 +128,12 @@ function clearUploadedData(){localStorage.removeItem(STORAGE_KEY);localStorage.r
 const __saved=loadSavedData();
 const n=x=>Number(x)||0;
 let contestGroupIndex=0;
-let interestGroupIndex=0;
+let interestGroupIndex=null;
 const money=x=>new Intl.NumberFormat('vi-VN',{maximumFractionDigits:2}).format(n(x))+' tr';
 const qty=x=>new Intl.NumberFormat('vi-VN',{maximumFractionDigits:0}).format(n(x));
 const fmt=(x,u)=>u==='qty'?qty(x):money(x);
 const pct=x=>(n(x)*100).toFixed(1)+'%';
-function setMode(m){mode=m;document.querySelectorAll('.filters .btn').forEach(b=>b.classList.toggle('active',b.dataset.m===m));if(m!=='contest')contestGroupIndex=0;if(m!=='interest')interestGroupIndex=0;render()}
+function setMode(m){mode=m;document.querySelectorAll('.filters .btn').forEach(b=>b.classList.toggle('active',b.dataset.m===m));if(m!=='contest')contestGroupIndex=0;if(m!=='interest')interestGroupIndex=null;render()}
 function clearSearch(){document.getElementById('q').value='';render()}
 function filtered(){let q=document.getElementById('q').value.toLowerCase().trim();let a=DATA.employees.filter(e=>!q||e.name.toLowerCase().includes(q)||String(e.user).includes(q));if(mode==='rank')a.sort((x,y)=>(x.revenueRank||99)-(y.revenueRank||99));if(mode==='eff')a.sort((x,y)=>n(y.completion)-n(x.completion));return a}
 function render(){
@@ -172,14 +172,18 @@ function renderInterestRank(){
  if(mode!=='interest'){document.getElementById('interestPanel').innerHTML='';return}
  const groups=[...(DATA.ict||[]),...(DATA.service||[])];
  if(!groups.length){document.getElementById('interestPanel').innerHTML='';return}
- if(interestGroupIndex>=groups.length)interestGroupIndex=0;
+ const options=`<option value="" ${interestGroupIndex===null?'selected':''}>— Chọn nhóm hàng quan tâm —</option>`+groups.map((x,i)=>`<option value="${i}" ${i===interestGroupIndex?'selected':''}>${x.name}</option>`).join('');
+ if(interestGroupIndex===null){
+   document.getElementById('interestPanel').innerHTML=`<div class="panel"><h2>⭐ NHÓM HÀNG QUAN TÂM</h2><div class="hint">Chọn 1 nhóm hàng bên dưới. Chỉ khi bạn chọn nhóm hàng, hệ thống mới hiển thị Bottom 5 nhân viên có % hoàn thành dự kiến thi đua thấp nhất.</div><select class="interestSelect" onchange="selectInterestGroup(this.value)">${options}</select></div>`;
+   return;
+ }
+ if(interestGroupIndex<0||interestGroupIndex>=groups.length){interestGroupIndex=null;renderInterestRank();return}
  const g=groups[interestGroupIndex];
  const rows=[...(g.rows||[])].sort((a,b)=>n(a.forecast)-n(b.forecast)||n(a.completion)-n(b.completion)||String(a.name).localeCompare(String(b.name),'vi')).slice(0,5);
- const options=groups.map((x,i)=>`<option value="${i}" ${i===interestGroupIndex?'selected':''}>${x.name}</option>`).join('');
  const row=(r,i)=>{const isPass=String(r.status||'').toUpperCase()==='ĐẠT';return `<div class="interestrow"><div class="ranknum">#${i+1}</div><div><div class="rankname">${r.name}</div><div class="ranksub">% HT ${pct(r.completion)} • % Dự kiến ${pct(r.forecast)} • ${r.status||'KHÔNG ĐẠT'}</div></div><div class="interestpct ${isPass?'pass':'fail'}">${pct(r.forecast)}<span>${r.status||'KHÔNG ĐẠT'}</span></div></div>`};
- document.getElementById('interestPanel').innerHTML=`<div class="panel"><h2>⭐ NHÓM HÀNG QUAN TÂM</h2><div class="hint">Chọn nhóm hàng để xem Bottom 5 nhân viên có % hoàn thành dự kiến thi đua thấp nhất.</div><select class="interestSelect" onchange="selectInterestGroup(this.value)">${options}</select><div class="contestHead"><div><b>${g.name}</b><div class="muted">Bottom 5 theo % hoàn thành dự kiến • ${g.rows.length} nhân viên</div></div><div class="tag">${g.unit==='qty'?'SỐ LƯỢNG':'DOANH THU'}</div></div><div class="interestList">${rows.map(row).join('')}</div><div class="bottomnote">Xếp từ % dự kiến thấp → cao. Trường hợp bằng nhau, ưu tiên % hoàn thành thực tế thấp hơn.</div></div>`;
+ document.getElementById('interestPanel').innerHTML=`<div class="panel"><h2>⭐ NHÓM HÀNG QUAN TÂM</h2><div class="hint">Đang xem 1 nhóm hàng. Chọn nhóm khác để thay đổi. Chỉ hiển thị Bottom 5 của nhóm đang chọn.</div><select class="interestSelect" onchange="selectInterestGroup(this.value)">${options}</select><div class="contestHead"><div><b>${g.name}</b><div class="muted">Bottom 5 theo % hoàn thành dự kiến • ${g.rows.length} nhân viên</div></div><div class="tag">${g.unit==='qty'?'SỐ LƯỢNG':'DOANH THU'}</div></div><div class="interestList">${rows.map(row).join('')}</div><div class="bottomnote">Xếp từ % dự kiến thấp → cao. Nếu bằng nhau, ưu tiên % hoàn thành thực tế thấp hơn.</div></div>`;
 }
-function selectInterestGroup(i){interestGroupIndex=Number(i)||0;renderInterestRank()}
+function selectInterestGroup(i){if(i===""||i===null||typeof i==="undefined"){interestGroupIndex=null}else{interestGroupIndex=Number(i)}renderInterestRank()}
 
 function selectEmp(name){selected=DATA.employees.find(e=>e.name===name);render()}
 function renderProfile(){if(!selected){document.getElementById('profile').innerHTML='';return}document.getElementById('profile').innerHTML=`<div class="panel"><h2>👤 ${selected.name}</h2><div class="profilegrid"><div class="card"><div class="label">Mã nhân viên</div><div class="big">${selected.user}</div></div><div class="card"><div class="label">Target</div><div class="big">${money(selected.target/1000000)}</div></div><div class="card"><div class="label">Lũy kế</div><div class="big">${money(selected.revenue/1000000)}</div></div><div class="card"><div class="label">% Hoàn thành</div><div class="big">${pct(selected.completion)}</div></div><div class="card"><div class="label">% Hoàn thành DK</div><div class="big">${pct(selected.forecast)}</div></div><div class="card"><div class="label">Hạng doanh thu</div><div class="big">#${selected.revenueRank||'-'}</div></div></div></div>`}
